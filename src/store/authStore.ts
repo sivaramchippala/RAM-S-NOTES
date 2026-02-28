@@ -1,13 +1,40 @@
 import { create } from 'zustand';
 import type { AuthView, User } from '../types';
 
-const DRIVE_USER_EMAIL = 'sivaram@gmail.com';
-const DRIVE_USER_PASSWORD = 'Sivaram@123';
-const LOCAL_DEMO_EMAIL = 'demo@ramnotes.app';
-const LOCAL_DEMO_PASSWORD = 'Demo@2026';
+const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL as string | undefined)?.trim().toLowerCase() || 'sivaram@gmail.com';
+const ADMIN_PASSWORD = (import.meta.env.VITE_ADMIN_PASSWORD as string | undefined) || 'Sivaram@123';
+const ADMIN_NAME = (import.meta.env.VITE_ADMIN_NAME as string | undefined) || 'Admin';
+
+const VIEWER_EMAIL = (import.meta.env.VITE_VIEWER_EMAIL as string | undefined)?.trim().toLowerCase() || 'viewer@ramnotes.app';
+const VIEWER_PASSWORD = (import.meta.env.VITE_VIEWER_PASSWORD as string | undefined) || 'Viewer@2026';
+const VIEWER_NAME = (import.meta.env.VITE_VIEWER_NAME as string | undefined) || 'Viewer User';
+
+const DEMO_EMAIL = (import.meta.env.VITE_DEMO_EMAIL as string | undefined)?.trim().toLowerCase() || 'demo@ramnotes.app';
+const DEMO_PASSWORD = (import.meta.env.VITE_DEMO_PASSWORD as string | undefined) || 'Demo@2026';
+const DEMO_NAME = (import.meta.env.VITE_DEMO_NAME as string | undefined) || 'Demo User';
+
 const STORAGE_MODE_KEY = 'rams-notes-storage-mode';
+const USER_KEY = 'rams-notes-user';
 
 type StorageMode = 'drive' | 'local';
+
+function getStoredUser(): User | null {
+  const raw = localStorage.getItem(USER_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<User>;
+    if (!parsed?.email || !parsed?.name) return null;
+    return {
+      id: parsed.id || 'legacy-user',
+      name: parsed.name,
+      email: parsed.email,
+      role: parsed.role || ((localStorage.getItem(STORAGE_MODE_KEY) as StorageMode) === 'local' ? 'demo' : 'admin'),
+      avatar: parsed.avatar,
+    };
+  } catch {
+    return null;
+  }
+}
 
 interface AuthState {
   user: User | null;
@@ -28,11 +55,11 @@ interface AuthState {
   clearMessages: () => void;
 }
 
+const initialUser = getStoredUser();
+
 export const useAuthStore = create<AuthState>((set) => ({
-  user: localStorage.getItem('rams-notes-user')
-    ? JSON.parse(localStorage.getItem('rams-notes-user')!)
-    : null,
-  isAuthenticated: !!localStorage.getItem('rams-notes-user'),
+  user: initialUser,
+  isAuthenticated: !!initialUser,
   storageMode: (localStorage.getItem(STORAGE_MODE_KEY) as StorageMode) || 'drive',
   currentView: 'signin',
   isLoading: false,
@@ -44,23 +71,36 @@ export const useAuthStore = create<AuthState>((set) => ({
   signIn: async (email, password) => {
     set({ isLoading: true, error: null });
     await new Promise((r) => setTimeout(r, 800));
-    if (email === DRIVE_USER_EMAIL && password === DRIVE_USER_PASSWORD) {
-      const user: User = { id: '1', name: 'Sivaram', email: DRIVE_USER_EMAIL };
-      localStorage.setItem('rams-notes-user', JSON.stringify(user));
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (normalizedEmail === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+      const user: User = { id: 'admin-1', name: ADMIN_NAME, email: ADMIN_EMAIL, role: 'admin' };
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
       localStorage.setItem(STORAGE_MODE_KEY, 'drive');
       set({ user, isAuthenticated: true, storageMode: 'drive', isLoading: false });
       return true;
     }
-    if (email === LOCAL_DEMO_EMAIL && password === LOCAL_DEMO_PASSWORD) {
-      const user: User = { id: '2', name: 'Demo User', email: LOCAL_DEMO_EMAIL };
-      localStorage.setItem('rams-notes-user', JSON.stringify(user));
+
+    if (normalizedEmail === VIEWER_EMAIL && password === VIEWER_PASSWORD) {
+      const user: User = { id: 'viewer-1', name: VIEWER_NAME, email: VIEWER_EMAIL, role: 'user' };
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+      localStorage.setItem(STORAGE_MODE_KEY, 'drive');
+      set({ user, isAuthenticated: true, storageMode: 'drive', isLoading: false });
+      return true;
+    }
+
+    if (normalizedEmail === DEMO_EMAIL && password === DEMO_PASSWORD) {
+      const user: User = { id: 'demo-1', name: DEMO_NAME, email: DEMO_EMAIL, role: 'demo' };
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
       localStorage.setItem(STORAGE_MODE_KEY, 'local');
       set({ user, isAuthenticated: true, storageMode: 'local', isLoading: false });
       return true;
     }
+
     set({
       isLoading: false,
-      error: 'Invalid email or password. Use drive login or demo login credentials.',
+      error: 'Invalid credentials. Use admin, user, or demo credentials from your .env setup.',
     });
     return false;
   },
@@ -141,7 +181,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
-    localStorage.removeItem('rams-notes-user');
+    localStorage.removeItem(USER_KEY);
     localStorage.removeItem(STORAGE_MODE_KEY);
     set({ user: null, isAuthenticated: false, storageMode: 'drive', currentView: 'signin' });
   },

@@ -9,9 +9,10 @@ import { Modal } from './components/ui/Modal';
 function App() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const storageMode = useAuthStore((s) => s.storageMode);
+  const userRole = useAuthStore((s) => s.user?.role);
   const isDark = useThemeStore((s) => s.isDark);
   const hydrateFromDrive = useNotesStore((s) => s.hydrateFromDrive);
-  const isHydratingDrive = useNotesStore((s) => s.isHydratingDrive);
+  const loadFromCurrentStorage = useNotesStore((s) => s.loadFromCurrentStorage);
   const hasHydratedDrive = useNotesStore((s) => s.hasHydratedDrive);
   const [isUnsavedAlertOpen, setIsUnsavedAlertOpen] = useState(false);
   const hiddenWithUnsavedRef = useRef(false);
@@ -21,13 +22,18 @@ function App() {
   }, [isDark]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+    loadFromCurrentStorage();
+  }, [isAuthenticated, storageMode, loadFromCurrentStorage]);
+
+  useEffect(() => {
     if (isAuthenticated && storageMode === 'drive' && !hasHydratedDrive) {
       void hydrateFromDrive();
     }
   }, [isAuthenticated, storageMode, hasHydratedDrive, hydrateFromDrive]);
 
   useEffect(() => {
-    if (!isAuthenticated || storageMode !== 'drive') return;
+    if (!isAuthenticated || storageMode !== 'drive' || userRole !== 'admin') return;
 
     const handleVisibilityChange = () => {
       const { hasUnsavedChanges, isDriveSyncing } = useNotesStore.getState();
@@ -45,7 +51,7 @@ function App() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isAuthenticated, storageMode]);
+  }, [isAuthenticated, storageMode, userRole]);
 
   if (!isAuthenticated) {
     return <AuthPage />;
@@ -55,25 +61,27 @@ function App() {
     <>
       <DashboardPage />
       {storageMode === 'drive' && !hasHydratedDrive ? <InitialDriveLoader /> : null}
-      <Modal
-        isOpen={isUnsavedAlertOpen}
-        onClose={() => setIsUnsavedAlertOpen(false)}
-        title="Unsaved changes"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-neutral-700 dark:text-neutral-300">
-            You changed screen/tab with unsaved notes. Click Save in the top bar to upload to Google Drive.
-          </p>
-          <div className="flex justify-end">
-            <button
-              onClick={() => setIsUnsavedAlertOpen(false)}
-              className="px-3 py-2 text-sm rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
-            >
-              OK
-            </button>
+      {userRole === 'admin' ? (
+        <Modal
+          isOpen={isUnsavedAlertOpen}
+          onClose={() => setIsUnsavedAlertOpen(false)}
+          title="Unsaved changes"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-neutral-700 dark:text-neutral-300">
+              You changed screen/tab with unsaved notes. Click Save in the top bar to upload to Google Drive.
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setIsUnsavedAlertOpen(false)}
+                className="px-3 py-2 text-sm rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
+              >
+                OK
+              </button>
+            </div>
           </div>
-        </div>
-      </Modal>
+        </Modal>
+      ) : null}
     </>
   );
 }

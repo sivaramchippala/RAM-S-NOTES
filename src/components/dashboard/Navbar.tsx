@@ -9,6 +9,8 @@ import { Modal } from '../ui/Modal';
 export function Navbar() {
   const { isDark, toggle } = useThemeStore();
   const { user, logout, storageMode } = useAuthStore();
+  const isReadOnlyDriveUser = storageMode === 'drive' && user?.role === 'user';
+  const isAdminDriveUser = storageMode === 'drive' && user?.role === 'admin';
   const { isDriveSyncing, driveError, lastSyncedAt, hasUnsavedChanges, syncToDrive } = useNotesStore((s) => ({
     isDriveSyncing: s.isDriveSyncing,
     driveError: s.driveError,
@@ -36,6 +38,18 @@ export function Navbar() {
           <div className="hidden md:flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
             {storageMode === 'local' ? (
               <span>Demo mode: saved in localStorage</span>
+            ) : isReadOnlyDriveUser ? (
+              <>
+                <span>View only mode: synced from Drive</span>
+                {driveError ? (
+                  <span
+                    className="text-red-500 dark:text-red-400 max-w-[260px] truncate"
+                    title={driveError}
+                  >
+                    {driveError}
+                  </span>
+                ) : null}
+              </>
             ) : (
               <>
                 {isDriveSyncing ? (
@@ -56,13 +70,15 @@ export function Navbar() {
                 ) : (
                   <span>Drive not synced yet</span>
                 )}
-                <button
-                  onClick={() => void syncToDrive(undefined, true)}
-                  disabled={isDriveSyncing || !hasUnsavedChanges}
-                  className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Save
-                </button>
+                {isAdminDriveUser ? (
+                  <button
+                    onClick={() => void syncToDrive(undefined, true)}
+                    disabled={isDriveSyncing || !hasUnsavedChanges}
+                    className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Save
+                  </button>
+                ) : null}
               </>
             )}
           </div>

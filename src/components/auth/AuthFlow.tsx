@@ -1,11 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, User, ArrowLeft, KeyRound, CheckCircle2, XCircle, FlaskConical } from 'lucide-react';
+import { Mail, Lock, User, ArrowLeft, KeyRound, CheckCircle2, XCircle } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { validatePassword, isPasswordValid } from '../../utils/validation';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import type { AuthView } from '../../types';
+
+const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL as string | undefined)?.trim().toLowerCase() || 'sivaram@gmail.com';
+const VIEWER_EMAIL = (import.meta.env.VITE_VIEWER_EMAIL as string | undefined)?.trim().toLowerCase() || 'viewer@ramnotes.app';
+const DEMO_EMAIL = (import.meta.env.VITE_DEMO_EMAIL as string | undefined)?.trim().toLowerCase() || 'demo@ramnotes.app';
+const DEMO_PASSWORD = (import.meta.env.VITE_DEMO_PASSWORD as string | undefined) || 'Demo@2026';
 
 function PasswordStrength({ password }: { password: string }) {
   const v = validatePassword(password);
@@ -126,19 +131,26 @@ function SignInForm() {
   const { signIn, isLoading, setView, clearMessages } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showDemo, setShowDemo] = useState(false);
-  const demoEmail = 'demo@ramnotes.app';
-  const demoPassword = 'Demo@2026';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await signIn(email, password);
   };
 
+  const fillDemoCredentials = () => {
+    setEmail(DEMO_EMAIL);
+    setPassword(DEMO_PASSWORD);
+  };
+
+  const loginAsDemo = async () => {
+    fillDemoCredentials();
+    await signIn(DEMO_EMAIL, DEMO_PASSWORD);
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <h2 className="text-xl font-semibold text-neutral-900 dark:text-white mb-1">Welcome back</h2>
-      <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">Sign in to your account</p>
+      <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">Sign in with admin, user, or demo credentials</p>
       <Input
         label="Email"
         type="email"
@@ -157,11 +169,22 @@ function SignInForm() {
         icon={<Lock size={16} />}
         required
       />
-      <div className="flex justify-end">
+      <div className="flex justify-between items-center">
+        <button
+          type="button"
+          onClick={() => void loginAsDemo()}
+          className="text-xs text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors"
+        >
+          Demo Quick Login
+        </button>
+
         <button
           type="button"
           className="text-xs text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors"
-          onClick={() => { clearMessages(); setView('forgot-password'); }}
+          onClick={() => {
+            clearMessages();
+            setView('forgot-password');
+          }}
         >
           Forgot password?
         </button>
@@ -169,41 +192,6 @@ function SignInForm() {
       <Button type="submit" isLoading={isLoading} className="w-full" size="lg">
         Sign In
       </Button>
-      <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/40 p-3.5">
-        <button
-          type="button"
-          onClick={() => setShowDemo((prev) => !prev)}
-          className="w-full flex items-center justify-between text-left"
-        >
-          <span className="flex items-center gap-2 text-sm font-medium text-neutral-800 dark:text-neutral-100">
-            <FlaskConical size={14} />
-            Demo user login
-          </span>
-          <span className="text-xs text-neutral-500 dark:text-neutral-400">
-            {showDemo ? 'Hide' : 'Show'}
-          </span>
-        </button>
-        {showDemo && (
-          <div className="mt-3 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 p-3">
-            <p className="text-xs text-neutral-600 dark:text-neutral-300">
-              Email: <span className="font-medium text-neutral-800 dark:text-neutral-100">{demoEmail}</span>
-            </p>
-            <p className="text-xs text-neutral-600 dark:text-neutral-300 mt-1">
-              Password: <span className="font-medium text-neutral-800 dark:text-neutral-100">{demoPassword}</span>
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setEmail(demoEmail);
-                setPassword(demoPassword);
-              }}
-              className="mt-3 w-full px-3 py-2 text-xs font-medium rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
-            >
-              Use demo credentials
-            </button>
-          </div>
-        )}
-      </div>
       <p className="text-center text-sm text-neutral-500 dark:text-neutral-400">
         Don't have an account?{' '}
         <button

@@ -1,20 +1,60 @@
 import { create } from 'zustand';
 import type { FolderItem } from '../types';
 import { loadNotesFromDrive, saveNotesToDrive } from '../lib/driveClient';
+import { useAuthStore } from './authStore';
 
-const STORAGE_KEY = 'rams-notes-data';
+const LEGACY_STORAGE_KEY = 'rams-notes-data';
+const DRIVE_STORAGE_KEY = 'rams-notes-drive-data';
+const LOCAL_STORAGE_KEY = 'rams-notes-local-data';
+const STORAGE_MODE_KEY = 'rams-notes-storage-mode';
+
+type StorageMode = 'drive' | 'local';
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-function loadData(): FolderItem[] {
+function getStorageKey(mode: StorageMode): string {
+  return mode === 'local' ? LOCAL_STORAGE_KEY : DRIVE_STORAGE_KEY;
+}
+
+function getInitialStorageMode(): StorageMode {
+  return (localStorage.getItem(STORAGE_MODE_KEY) as StorageMode) || 'drive';
+}
+
+function loadDataForMode(mode: StorageMode): FolderItem[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : getDefaultData();
+    const raw = localStorage.getItem(getStorageKey(mode));
+    if (raw) {
+      return JSON.parse(raw);
+    }
+
+    // Backward compatibility for older builds that used one shared key.
+    const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacyRaw) {
+      const parsed = JSON.parse(legacyRaw);
+      localStorage.setItem(getStorageKey(mode), JSON.stringify(parsed));
+      return parsed;
+    }
+
+    return getDefaultData();
   } catch {
     return getDefaultData();
   }
+}
+
+function loadData(): FolderItem[] {
+  return loadDataForMode(getInitialStorageMode());
+}
+
+function persistData(items: FolderItem[]) {
+  const mode = useAuthStore.getState().storageMode;
+  localStorage.setItem(getStorageKey(mode), JSON.stringify(items));
+}
+
+function loadItemsForCurrentMode(): FolderItem[] {
+  const mode = useAuthStore.getState().storageMode;
+  return loadDataForMode(mode);
 }
 
 function getDefaultData(): FolderItem[] {
@@ -42,10 +82,6 @@ function getDefaultData(): FolderItem[] {
       ],
     },
   ];
-}
-
-function persistData(items: FolderItem[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
 }
 
 function findItemById(items: FolderItem[], id: string): FolderItem | null {
@@ -103,6 +139,7 @@ interface NotesState {
   toggleExpand: (id: string) => void;
   hydrateFromDrive: () => Promise<void>;
   syncToDrive: (itemsOverride?: FolderItem[], force?: boolean) => Promise<void>;
+  loadFromCurrentStorage: () => void;
   getActiveFile: () => FolderItem | null;
 }
 
@@ -227,7 +264,10 @@ export const useNotesStore = create<NotesState>((set, get) => ({
         persistData(driveItems);
         set({ items: driveItems, hasUnsavedChanges: false, lastSyncedAt: Date.now() });
       } else {
-        await get().syncToDrive(get().items, true);
+        const role = useAuthStore.getState().user?.role;
+        if (role === 'admin') {
+          await get().syncToDrive(get().items, true);
+        }
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Drive sync failed.';
@@ -238,6 +278,11 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   },
 
   syncToDrive: async (itemsOverride, force = false) => {
+    const role = useAuthStore.getState().user?.role;
+    if (role !== 'admin') {
+      return;
+    }
+
     if (!force && !get().hasUnsavedChanges && !itemsOverride) {
       return;
     }
@@ -254,6 +299,20 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     } finally {
       set({ isDriveSyncing: false });
     }
+  },
+
+  loadFromCurrentStorage: () => {
+    const loadedItems = loadItemsForCurrentMode();
+    set((state) => {
+      const hasActive = state.activeFileId
+        ? !!findItemById(loadedItems, state.activeFileId)
+        : false;
+      return {
+        items: loadedItems,
+        activeFileId: hasActive ? state.activeFileId : null,
+        hasUnsavedChanges: false,
+      };
+    });
   },
 
   getActiveFile: () => {

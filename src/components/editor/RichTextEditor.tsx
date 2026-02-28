@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useNotesStore } from '../../store/notesStore';
+import { useAuthStore } from '../../store/authStore';
 import { Modal } from '../ui/Modal';
 
 const lowlight = createLowlight(common);
@@ -97,6 +98,7 @@ function Divider() {
 
 export function RichTextEditor() {
   const { activeFileId, getActiveFile, updateContent } = useNotesStore();
+  const isReadOnly = useAuthStore((s) => s.user?.role === 'user');
   const activeFile = getActiveFile();
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -126,6 +128,7 @@ export function RichTextEditor() {
       TextStyle,
       Color,
     ],
+    editable: !isReadOnly,
     content: activeFile?.content || '',
     editorProps: {
       attributes: {
@@ -143,6 +146,7 @@ export function RichTextEditor() {
       },
     },
     onUpdate: ({ editor }) => {
+      if (isReadOnly) return;
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
         if (activeFileId) {
@@ -160,6 +164,11 @@ export function RichTextEditor() {
       }
     }
   }, [editor, activeFileId, activeFile?.content]);
+
+  useEffect(() => {
+    if (!editor) return;
+    editor.setEditable(!isReadOnly);
+  }, [editor, isReadOnly]);
 
   const openImageModal = useCallback(() => {
     setImageError(null);
@@ -313,103 +322,109 @@ export function RichTextEditor() {
   return (
     <div ref={editorContainerRef} className="flex-1 flex flex-col bg-white dark:bg-neutral-950 overflow-hidden">
       {/* Toolbar */}
-      <div className="flex items-center gap-0.5 px-3 py-2 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-x-auto shrink-0">
-        <input
-          ref={imageInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={addImageFromFile}
-        />
-        <ToolButton onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} title="Undo">
-          <Undo size={15} />
-        </ToolButton>
-        <ToolButton onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} title="Redo">
-          <Redo size={15} />
-        </ToolButton>
-        <Divider />
-        <ToolButton onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} isActive={editor.isActive('heading', { level: 1 })} title="Heading 1">
-          <Heading1 size={15} />
-        </ToolButton>
-        <ToolButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} isActive={editor.isActive('heading', { level: 2 })} title="Heading 2">
-          <Heading2 size={15} />
-        </ToolButton>
-        <ToolButton onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} isActive={editor.isActive('heading', { level: 3 })} title="Heading 3">
-          <Heading3 size={15} />
-        </ToolButton>
-        <Divider />
-        <ToolButton onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive('bold')} title="Bold">
-          <Bold size={15} />
-        </ToolButton>
-        <ToolButton onClick={() => editor.chain().focus().toggleItalic().run()} isActive={editor.isActive('italic')} title="Italic">
-          <Italic size={15} />
-        </ToolButton>
-        <ToolButton onClick={() => editor.chain().focus().toggleUnderline().run()} isActive={editor.isActive('underline')} title="Underline">
-          <UnderlineIcon size={15} />
-        </ToolButton>
-        <ToolButton onClick={() => editor.chain().focus().toggleStrike().run()} isActive={editor.isActive('strike')} title="Strikethrough">
-          <Strikethrough size={15} />
-        </ToolButton>
-        <ToolButton onClick={() => editor.chain().focus().toggleHighlight().run()} isActive={editor.isActive('highlight')} title="Highlight">
-          <Highlighter size={15} />
-        </ToolButton>
-        <ToolButton onClick={() => editor.chain().focus().toggleCode().run()} isActive={editor.isActive('code')} title="Inline Code">
-          <Code size={15} />
-        </ToolButton>
-        <Divider />
-        <ToolButton onClick={() => editor.chain().focus().setTextAlign('left').run()} isActive={editor.isActive({ textAlign: 'left' })} title="Align Left">
-          <AlignLeft size={15} />
-        </ToolButton>
-        <ToolButton onClick={() => editor.chain().focus().setTextAlign('center').run()} isActive={editor.isActive({ textAlign: 'center' })} title="Align Center">
-          <AlignCenter size={15} />
-        </ToolButton>
-        <ToolButton onClick={() => editor.chain().focus().setTextAlign('right').run()} isActive={editor.isActive({ textAlign: 'right' })} title="Align Right">
-          <AlignRight size={15} />
-        </ToolButton>
-        <Divider />
-        <ToolButton onClick={() => editor.chain().focus().toggleBulletList().run()} isActive={editor.isActive('bulletList')} title="Bullet List">
-          <List size={15} />
-        </ToolButton>
-        <ToolButton onClick={() => editor.chain().focus().toggleOrderedList().run()} isActive={editor.isActive('orderedList')} title="Numbered List">
-          <ListOrdered size={15} />
-        </ToolButton>
-        <ToolButton onClick={() => editor.chain().focus().toggleBlockquote().run()} isActive={editor.isActive('blockquote')} title="Quote">
-          <Quote size={15} />
-        </ToolButton>
-        <ToolButton onClick={() => editor.chain().focus().toggleCodeBlock().run()} isActive={editor.isActive('codeBlock')} title="Code Block">
-          <CodeSquare size={15} />
-        </ToolButton>
-        <ToolButton onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Divider">
-          <Minus size={15} />
-        </ToolButton>
-        <Divider />
-        <ToolButton onClick={openImageModal} title="Insert Image (URL or Upload)">
-          <ImageIcon size={15} />
-        </ToolButton>
-        <ToolButton onClick={addTable} title="Insert Table">
-          <TableIcon size={15} />
-        </ToolButton>
-        {editor.isActive('table') && (
-          <>
-            <Divider />
-            <ToolButton onClick={() => editor.chain().focus().addColumnBefore().run()} title="Add Column Before">
-              <ArrowLeft size={15} />
-            </ToolButton>
-            <ToolButton onClick={() => editor.chain().focus().addColumnAfter().run()} title="Add Column After">
-              <ArrowRight size={15} />
-            </ToolButton>
-            <ToolButton onClick={() => editor.chain().focus().addRowBefore().run()} title="Add Row Before">
-              <ArrowUp size={15} />
-            </ToolButton>
-            <ToolButton onClick={() => editor.chain().focus().addRowAfter().run()} title="Add Row After">
-              <ArrowDown size={15} />
-            </ToolButton>
-            <ToolButton onClick={() => editor.chain().focus().deleteTable().run()} title="Delete Table">
-              <Trash2 size={15} />
-            </ToolButton>
-          </>
-        )}
-      </div>
+      {!isReadOnly ? (
+        <div className="flex items-center gap-0.5 px-3 py-2 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-x-auto shrink-0">
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={addImageFromFile}
+          />
+          <ToolButton onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} title="Undo">
+            <Undo size={15} />
+          </ToolButton>
+          <ToolButton onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} title="Redo">
+            <Redo size={15} />
+          </ToolButton>
+          <Divider />
+          <ToolButton onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} isActive={editor.isActive('heading', { level: 1 })} title="Heading 1">
+            <Heading1 size={15} />
+          </ToolButton>
+          <ToolButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} isActive={editor.isActive('heading', { level: 2 })} title="Heading 2">
+            <Heading2 size={15} />
+          </ToolButton>
+          <ToolButton onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} isActive={editor.isActive('heading', { level: 3 })} title="Heading 3">
+            <Heading3 size={15} />
+          </ToolButton>
+          <Divider />
+          <ToolButton onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive('bold')} title="Bold">
+            <Bold size={15} />
+          </ToolButton>
+          <ToolButton onClick={() => editor.chain().focus().toggleItalic().run()} isActive={editor.isActive('italic')} title="Italic">
+            <Italic size={15} />
+          </ToolButton>
+          <ToolButton onClick={() => editor.chain().focus().toggleUnderline().run()} isActive={editor.isActive('underline')} title="Underline">
+            <UnderlineIcon size={15} />
+          </ToolButton>
+          <ToolButton onClick={() => editor.chain().focus().toggleStrike().run()} isActive={editor.isActive('strike')} title="Strikethrough">
+            <Strikethrough size={15} />
+          </ToolButton>
+          <ToolButton onClick={() => editor.chain().focus().toggleHighlight().run()} isActive={editor.isActive('highlight')} title="Highlight">
+            <Highlighter size={15} />
+          </ToolButton>
+          <ToolButton onClick={() => editor.chain().focus().toggleCode().run()} isActive={editor.isActive('code')} title="Inline Code">
+            <Code size={15} />
+          </ToolButton>
+          <Divider />
+          <ToolButton onClick={() => editor.chain().focus().setTextAlign('left').run()} isActive={editor.isActive({ textAlign: 'left' })} title="Align Left">
+            <AlignLeft size={15} />
+          </ToolButton>
+          <ToolButton onClick={() => editor.chain().focus().setTextAlign('center').run()} isActive={editor.isActive({ textAlign: 'center' })} title="Align Center">
+            <AlignCenter size={15} />
+          </ToolButton>
+          <ToolButton onClick={() => editor.chain().focus().setTextAlign('right').run()} isActive={editor.isActive({ textAlign: 'right' })} title="Align Right">
+            <AlignRight size={15} />
+          </ToolButton>
+          <Divider />
+          <ToolButton onClick={() => editor.chain().focus().toggleBulletList().run()} isActive={editor.isActive('bulletList')} title="Bullet List">
+            <List size={15} />
+          </ToolButton>
+          <ToolButton onClick={() => editor.chain().focus().toggleOrderedList().run()} isActive={editor.isActive('orderedList')} title="Numbered List">
+            <ListOrdered size={15} />
+          </ToolButton>
+          <ToolButton onClick={() => editor.chain().focus().toggleBlockquote().run()} isActive={editor.isActive('blockquote')} title="Quote">
+            <Quote size={15} />
+          </ToolButton>
+          <ToolButton onClick={() => editor.chain().focus().toggleCodeBlock().run()} isActive={editor.isActive('codeBlock')} title="Code Block">
+            <CodeSquare size={15} />
+          </ToolButton>
+          <ToolButton onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Divider">
+            <Minus size={15} />
+          </ToolButton>
+          <Divider />
+          <ToolButton onClick={openImageModal} title="Insert Image (URL or Upload)">
+            <ImageIcon size={15} />
+          </ToolButton>
+          <ToolButton onClick={addTable} title="Insert Table">
+            <TableIcon size={15} />
+          </ToolButton>
+          {editor.isActive('table') && (
+            <>
+              <Divider />
+              <ToolButton onClick={() => editor.chain().focus().addColumnBefore().run()} title="Add Column Before">
+                <ArrowLeft size={15} />
+              </ToolButton>
+              <ToolButton onClick={() => editor.chain().focus().addColumnAfter().run()} title="Add Column After">
+                <ArrowRight size={15} />
+              </ToolButton>
+              <ToolButton onClick={() => editor.chain().focus().addRowBefore().run()} title="Add Row Before">
+                <ArrowUp size={15} />
+              </ToolButton>
+              <ToolButton onClick={() => editor.chain().focus().addRowAfter().run()} title="Add Row After">
+                <ArrowDown size={15} />
+              </ToolButton>
+              <ToolButton onClick={() => editor.chain().focus().deleteTable().run()} title="Delete Table">
+                <Trash2 size={15} />
+              </ToolButton>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="px-8 sm:px-12 lg:px-16 py-2 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/60 text-xs text-neutral-500 dark:text-neutral-400">
+          View only: editing and copy are disabled for this account.
+        </div>
+      )}
 
       {/* Editor Title */}
       <div className="px-8 sm:px-12 lg:px-16 pt-6 pb-0 bg-white dark:bg-neutral-950">
@@ -422,11 +437,19 @@ export function RichTextEditor() {
       </div>
 
       {/* Editor Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div
+        className={clsx('flex-1 overflow-y-auto', isReadOnly && 'select-none')}
+        onCopy={(e) => {
+          if (isReadOnly) e.preventDefault();
+        }}
+        onCut={(e) => {
+          if (isReadOnly) e.preventDefault();
+        }}
+      >
         <EditorContent editor={editor} />
       </div>
 
-      {showImageControls && imageControlsPos && (
+      {!isReadOnly && showImageControls && imageControlsPos && (
         <div
           className="fixed z-40 flex items-center gap-1 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 px-2 py-1.5 shadow-lg backdrop-blur-sm"
           style={{ top: imageControlsPos.top, left: imageControlsPos.left }}
@@ -477,7 +500,7 @@ export function RichTextEditor() {
         </div>
       )}
 
-      <Modal isOpen={isImageModalOpen} onClose={() => setIsImageModalOpen(false)} title="Insert Image">
+      <Modal isOpen={!isReadOnly && isImageModalOpen} onClose={() => setIsImageModalOpen(false)} title="Insert Image">
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">

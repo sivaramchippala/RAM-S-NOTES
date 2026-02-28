@@ -6,11 +6,13 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { useNotesStore } from '../../store/notesStore';
+import { useAuthStore } from '../../store/authStore';
 import type { FolderItem } from '../../types';
 import { Modal } from '../ui/Modal';
 
 export function Sidebar() {
   const { items, activeFileId, searchQuery, setSearchQuery, createFolder, createFile } = useNotesStore();
+  const isReadOnly = useAuthStore((s) => s.user?.role === 'user');
   const [showNewMenu, setShowNewMenu] = useState(false);
   const [promptConfig, setPromptConfig] = useState<PromptConfig | null>(null);
   const [confirmConfig, setConfirmConfig] = useState<ConfirmConfig | null>(null);
@@ -58,73 +60,88 @@ export function Sidebar() {
 
       <div className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
         {filteredItems.map((item) => (
-          <TreeNode key={item.id} item={item} depth={0} openPrompt={openPrompt} openConfirm={openConfirm} />
+          <TreeNode
+            key={item.id}
+            item={item}
+            depth={0}
+            openPrompt={openPrompt}
+            openConfirm={openConfirm}
+            isReadOnly={isReadOnly}
+          />
         ))}
         {filteredItems.length === 0 && (
           <p className="text-xs text-neutral-400 text-center py-6">
-            {searchQuery ? 'No results found' : 'No notes yet. Create one!'}
+            {searchQuery ? 'No results found' : isReadOnly ? 'No notes available.' : 'No notes yet. Create one!'}
           </p>
         )}
       </div>
 
       <div className="p-3 border-t border-neutral-200 dark:border-neutral-800 relative" ref={menuRef}>
-        <button
-          onClick={() => setShowNewMenu(!showNewMenu)}
-          className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium text-neutral-600 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
-        >
-          <Plus size={16} /> New
-        </button>
-        <AnimatePresence>
-          {showNewMenu && (
-            <motion.div
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 5 }}
-              className="absolute bottom-full left-3 right-3 mb-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg overflow-hidden z-20"
+        {isReadOnly ? (
+          <div className="w-full py-2 rounded-lg text-center text-xs font-medium text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800">
+            View only access
+          </div>
+        ) : (
+          <>
+            <button
+              onClick={() => setShowNewMenu(!showNewMenu)}
+              className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium text-neutral-600 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
             >
-              <button
-                onClick={() => {
-                  openPrompt({
-                    title: 'Create Folder',
-                    label: 'Folder name',
-                    placeholder: 'Enter folder name',
-                    submitLabel: 'Create',
-                    onSubmit: (name) => {
-                      if (hasDuplicateName(items, null, name)) {
-                        return 'A folder or note with this name already exists in this location.';
-                      }
-                      createFolder(name, null);
-                      setShowNewMenu(false);
-                    },
-                  });
-                }}
-                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
-              >
-                <FolderPlus size={15} /> New Folder
-              </button>
-              <button
-                onClick={() => {
-                  openPrompt({
-                    title: 'Create Note',
-                    label: 'Note name',
-                    placeholder: 'Enter note name',
-                    submitLabel: 'Create',
-                    onSubmit: (name) => {
-                      if (hasDuplicateName(items, null, name)) {
-                        return 'A folder or note with this name already exists in this location.';
-                      }
-                      createFile(name, null);
-                      setShowNewMenu(false);
-                    },
-                  });
-                }}
-                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
-              >
-                <FilePlus size={15} /> New Note
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <Plus size={16} /> New
+            </button>
+            <AnimatePresence>
+              {showNewMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 5 }}
+                  className="absolute bottom-full left-3 right-3 mb-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg overflow-hidden z-20"
+                >
+                  <button
+                    onClick={() => {
+                      openPrompt({
+                        title: 'Create Folder',
+                        label: 'Folder name',
+                        placeholder: 'Enter folder name',
+                        submitLabel: 'Create',
+                        onSubmit: (name) => {
+                          if (hasDuplicateName(items, null, name)) {
+                            return 'A folder or note with this name already exists in this location.';
+                          }
+                          createFolder(name, null);
+                          setShowNewMenu(false);
+                        },
+                      });
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
+                  >
+                    <FolderPlus size={15} /> New Folder
+                  </button>
+                  <button
+                    onClick={() => {
+                      openPrompt({
+                        title: 'Create Note',
+                        label: 'Note name',
+                        placeholder: 'Enter note name',
+                        submitLabel: 'Create',
+                        onSubmit: (name) => {
+                          if (hasDuplicateName(items, null, name)) {
+                            return 'A folder or note with this name already exists in this location.';
+                          }
+                          createFile(name, null);
+                          setShowNewMenu(false);
+                        },
+                      });
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
+                  >
+                    <FilePlus size={15} /> New Note
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </>
+        )}
       </div>
 
       <PromptModal
@@ -145,11 +162,13 @@ function TreeNode({
   depth,
   openPrompt,
   openConfirm,
+  isReadOnly,
 }: {
   item: FolderItem;
   depth: number;
   openPrompt: (config: PromptConfig) => void;
   openConfirm: (config: ConfirmConfig) => void;
+  isReadOnly: boolean;
 }) {
   const {
     items, activeFileId, setActiveFile, toggleExpand,
@@ -196,105 +215,107 @@ function TreeNode({
           <FileText size={15} className="shrink-0 text-neutral-400 dark:text-neutral-500" />
         )}
         <span className="truncate flex-1 ml-1">{item.name}</span>
-        <div className="relative" ref={menuRef}>
-          <button
-            onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
-            className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-all"
-          >
-            <MoreHorizontal size={14} />
-          </button>
-          <AnimatePresence>
-            {showMenu && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg z-30 overflow-hidden"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {isFolder && (
-                  <>
-                    <button
-                      onClick={() => {
-                        openPrompt({
-                          title: 'Create Subfolder',
-                          label: 'Subfolder name',
-                          placeholder: 'Enter subfolder name',
-                          submitLabel: 'Create',
-                          onSubmit: (name) => {
-                            if (hasDuplicateName(items, item.id, name)) {
-                              return 'A folder or note with this name already exists in this location.';
-                            }
-                            createFolder(name, item.id);
-                          },
-                        });
-                        setShowMenu(false);
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700"
-                    >
-                      <FolderPlus size={13} /> New Subfolder
-                    </button>
-                    <button
-                      onClick={() => {
-                        openPrompt({
-                          title: 'Create Note',
-                          label: 'Note name',
-                          placeholder: 'Enter note name',
-                          submitLabel: 'Create',
-                          onSubmit: (name) => {
-                            if (hasDuplicateName(items, item.id, name)) {
-                              return 'A folder or note with this name already exists in this location.';
-                            }
-                            createFile(name, item.id);
-                          },
-                        });
-                        setShowMenu(false);
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700"
-                    >
-                      <FilePlus size={13} /> New Note
-                    </button>
-                  </>
-                )}
-                <button
-                  onClick={() => {
-                    openPrompt({
-                      title: 'Rename Item',
-                      label: 'Name',
-                      placeholder: 'Enter name',
-                      initialValue: item.name,
-                      submitLabel: 'Save',
-                      onSubmit: (name) => {
-                        if (hasDuplicateName(items, item.parentId, name, item.id)) {
-                          return 'A folder or note with this name already exists in this location.';
-                        }
-                        renameItem(item.id, name);
-                      },
-                    });
-                    setShowMenu(false);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700"
+        {!isReadOnly ? (
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
+              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-all"
+            >
+              <MoreHorizontal size={14} />
+            </button>
+            <AnimatePresence>
+              {showMenu && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg z-30 overflow-hidden"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <Pencil size={13} /> Rename
-                </button>
-                <button
-                  onClick={() => {
-                    openConfirm({
-                      title: 'Delete Item',
-                      message: `Delete "${item.name}"? This action cannot be undone.`,
-                      confirmLabel: 'Delete',
-                      onConfirm: () => deleteItem(item.id),
-                    });
-                    setShowMenu(false);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                >
-                  <Trash2 size={13} /> Delete
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+                  {isFolder && (
+                    <>
+                      <button
+                        onClick={() => {
+                          openPrompt({
+                            title: 'Create Subfolder',
+                            label: 'Subfolder name',
+                            placeholder: 'Enter subfolder name',
+                            submitLabel: 'Create',
+                            onSubmit: (name) => {
+                              if (hasDuplicateName(items, item.id, name)) {
+                                return 'A folder or note with this name already exists in this location.';
+                              }
+                              createFolder(name, item.id);
+                            },
+                          });
+                          setShowMenu(false);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700"
+                      >
+                        <FolderPlus size={13} /> New Subfolder
+                      </button>
+                      <button
+                        onClick={() => {
+                          openPrompt({
+                            title: 'Create Note',
+                            label: 'Note name',
+                            placeholder: 'Enter note name',
+                            submitLabel: 'Create',
+                            onSubmit: (name) => {
+                              if (hasDuplicateName(items, item.id, name)) {
+                                return 'A folder or note with this name already exists in this location.';
+                              }
+                              createFile(name, item.id);
+                            },
+                          });
+                          setShowMenu(false);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700"
+                      >
+                        <FilePlus size={13} /> New Note
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={() => {
+                      openPrompt({
+                        title: 'Rename Item',
+                        label: 'Name',
+                        placeholder: 'Enter name',
+                        initialValue: item.name,
+                        submitLabel: 'Save',
+                        onSubmit: (name) => {
+                          if (hasDuplicateName(items, item.parentId, name, item.id)) {
+                            return 'A folder or note with this name already exists in this location.';
+                          }
+                          renameItem(item.id, name);
+                        },
+                      });
+                      setShowMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700"
+                  >
+                    <Pencil size={13} /> Rename
+                  </button>
+                  <button
+                    onClick={() => {
+                      openConfirm({
+                        title: 'Delete Item',
+                        message: `Delete "${item.name}"? This action cannot be undone.`,
+                        confirmLabel: 'Delete',
+                        onConfirm: () => deleteItem(item.id),
+                      });
+                      setShowMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  >
+                    <Trash2 size={13} /> Delete
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        ) : null}
       </div>
       <AnimatePresence>
         {isFolder && item.isExpanded && item.children.length > 0 && (
@@ -305,7 +326,14 @@ function TreeNode({
             transition={{ duration: 0.2 }}
           >
             {item.children.map((child) => (
-              <TreeNode key={child.id} item={child} depth={depth + 1} openPrompt={openPrompt} openConfirm={openConfirm} />
+              <TreeNode
+                key={child.id}
+                item={child}
+                depth={depth + 1}
+                openPrompt={openPrompt}
+                openConfirm={openConfirm}
+                isReadOnly={isReadOnly}
+              />
             ))}
           </motion.div>
         )}
