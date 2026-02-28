@@ -189,6 +189,15 @@ export const useNotesStore = create<NotesState>((set, get) => ({
 
   updateContent: (id, content) => {
     set((state) => {
+      const existingItem = findItemById(state.items, id);
+      if (!existingItem || existingItem.type !== 'file') {
+        return state;
+      }
+
+      if ((existingItem.content ?? '') === content) {
+        return state;
+      }
+
       const newItems = updateItemById(state.items, id, (item) => ({
         ...item,
         content,

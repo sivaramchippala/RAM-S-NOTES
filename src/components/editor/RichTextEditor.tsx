@@ -156,10 +156,10 @@ export function RichTextEditor() {
     if (editor && activeFile) {
       const currentContent = editor.getHTML();
       if (currentContent !== activeFile.content) {
-        editor.commands.setContent(activeFile.content || '');
+        editor.commands.setContent(activeFile.content || '', false);
       }
     }
-  }, [activeFileId]);
+  }, [editor, activeFileId, activeFile?.content]);
 
   const openImageModal = useCallback(() => {
     setImageError(null);

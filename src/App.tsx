@@ -51,13 +51,10 @@ function App() {
     return <AuthPage />;
   }
 
-  if (storageMode === 'drive' && !hasHydratedDrive) {
-    return <InitialDriveLoader />;
-  }
-
   return (
     <>
       <DashboardPage />
+      {storageMode === 'drive' && !hasHydratedDrive ? <InitialDriveLoader /> : null}
       <Modal
         isOpen={isUnsavedAlertOpen}
         onClose={() => setIsUnsavedAlertOpen(false)}
@@ -83,20 +80,17 @@ function App() {
 
 function InitialDriveLoader() {
   return (
-    <div className="h-screen w-screen bg-white dark:bg-neutral-950 flex items-center justify-center px-6">
-      <div className="w-full max-w-lg">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-            Loading your Drive notes
-          </h2>
-          <span className="text-xs text-neutral-500 dark:text-neutral-400">Please wait</span>
-        </div>
-        <div className="h-2.5 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
-          <div className="h-full w-1/3 rounded-full bg-neutral-900 dark:bg-neutral-100 drive-loader-bar" />
-        </div>
-        <p className="mt-3 text-sm text-neutral-500 dark:text-neutral-400">
-          Connecting to Google Drive and preparing your folder structure.
+    <div className="fixed inset-0 z-[1200] pointer-events-none flex items-center justify-center px-6">
+      <div className="w-auto rounded-xl border border-neutral-200/80 dark:border-neutral-700/80 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md shadow-xl px-5 py-4">
+        <p className="text-sm text-neutral-700 dark:text-neutral-200 text-center mb-2">
+          Loading files and folders...
         </p>
+        <div className="load-row mx-auto" aria-label="Loading files and folders">
+          <span />
+          <span />
+          <span />
+          <span />
+        </div>
       </div>
     </div>
   );
