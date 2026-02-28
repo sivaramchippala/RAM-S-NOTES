@@ -4,7 +4,6 @@ import { loadNotesFromDrive, saveNotesToDrive } from '../lib/driveClient';
 import { useAuthStore } from './authStore';
 
 const LEGACY_STORAGE_KEY = 'rams-notes-data';
-const DRIVE_STORAGE_KEY = 'rams-notes-drive-data';
 const LOCAL_STORAGE_KEY = 'rams-notes-local-data';
 const STORAGE_MODE_KEY = 'rams-notes-storage-mode';
 
@@ -14,26 +13,27 @@ function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-function getStorageKey(mode: StorageMode): string {
-  return mode === 'local' ? LOCAL_STORAGE_KEY : DRIVE_STORAGE_KEY;
-}
-
 function getInitialStorageMode(): StorageMode {
   return (localStorage.getItem(STORAGE_MODE_KEY) as StorageMode) || 'drive';
 }
 
 function loadDataForMode(mode: StorageMode): FolderItem[] {
+  if (mode === 'drive') {
+    // Drive mode is source-of-truth from Google Drive, not localStorage.
+    return getDefaultData();
+  }
+
   try {
-    const raw = localStorage.getItem(getStorageKey(mode));
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (raw) {
       return JSON.parse(raw);
     }
 
-    // Backward compatibility for older builds that used one shared key.
+    // Backward compatibility for older local-only builds.
     const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
     if (legacyRaw) {
       const parsed = JSON.parse(legacyRaw);
-      localStorage.setItem(getStorageKey(mode), JSON.stringify(parsed));
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(parsed));
       return parsed;
     }
 
@@ -49,7 +49,10 @@ function loadData(): FolderItem[] {
 
 function persistData(items: FolderItem[]) {
   const mode = useAuthStore.getState().storageMode;
-  localStorage.setItem(getStorageKey(mode), JSON.stringify(items));
+  if (mode !== 'local') {
+    return;
+  }
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
 }
 
 function loadItemsForCurrentMode(): FolderItem[] {
@@ -137,6 +140,7 @@ interface NotesState {
   renameItem: (id: string, name: string) => void;
   updateContent: (id: string, content: string) => void;
   toggleExpand: (id: string) => void;
+  prepareDriveHydration: () => void;
   hydrateFromDrive: () => Promise<void>;
   syncToDrive: (itemsOverride?: FolderItem[], force?: boolean) => Promise<void>;
   loadFromCurrentStorage: () => void;
@@ -256,7 +260,19 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     });
   },
 
+  prepareDriveHydration: () => {
+    set({
+      hasHydratedDrive: false,
+      isHydratingDrive: false,
+      driveError: null,
+    });
+  },
+
   hydrateFromDrive: async () => {
+    if (get().isHydratingDrive) {
+      return;
+    }
+
     try {
       set({ isHydratingDrive: true, driveError: null });
       const driveItems = await loadNotesFromDrive();

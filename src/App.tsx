@@ -11,6 +11,7 @@ function App() {
   const storageMode = useAuthStore((s) => s.storageMode);
   const userRole = useAuthStore((s) => s.user?.role);
   const isDark = useThemeStore((s) => s.isDark);
+  const prepareDriveHydration = useNotesStore((s) => s.prepareDriveHydration);
   const hydrateFromDrive = useNotesStore((s) => s.hydrateFromDrive);
   const loadFromCurrentStorage = useNotesStore((s) => s.loadFromCurrentStorage);
   const hasHydratedDrive = useNotesStore((s) => s.hasHydratedDrive);
@@ -23,14 +24,15 @@ function App() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    loadFromCurrentStorage();
-  }, [isAuthenticated, storageMode, loadFromCurrentStorage]);
-
-  useEffect(() => {
-    if (isAuthenticated && storageMode === 'drive' && !hasHydratedDrive) {
+    if (storageMode === 'local') {
+      loadFromCurrentStorage();
+      return;
+    }
+    prepareDriveHydration();
+    if (storageMode === 'drive') {
       void hydrateFromDrive();
     }
-  }, [isAuthenticated, storageMode, hasHydratedDrive, hydrateFromDrive]);
+  }, [isAuthenticated, storageMode, loadFromCurrentStorage, prepareDriveHydration, hydrateFromDrive]);
 
   useEffect(() => {
     if (!isAuthenticated || storageMode !== 'drive' || userRole !== 'admin') return;
