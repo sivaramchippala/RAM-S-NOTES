@@ -149,8 +149,8 @@ function SignInForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <h2 className="text-xl font-semibold text-neutral-900 dark:text-white mb-1">Welcome back</h2>
-      <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">Sign in with admin, user, or demo credentials</p>
+      <h2 className="text-xl text-center font-semibold text-neutral-900 dark:text-white mb-1">Welcome back</h2>
+      {/* <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">Sign in with admin, user, or demo credentials</p> */}
       <Input
         label="Email"
         type="email"
@@ -178,7 +178,7 @@ function SignInForm() {
           Demo Quick Login
         </button>
 
-        <button
+        {/* <button
           type="button"
           className="text-xs text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors"
           onClick={() => {
@@ -187,12 +187,12 @@ function SignInForm() {
           }}
         >
           Forgot password?
-        </button>
+        </button> */}
       </div>
       <Button type="submit" isLoading={isLoading} className="w-full" size="lg">
         Sign In
       </Button>
-      <p className="text-center text-sm text-neutral-500 dark:text-neutral-400">
+      {/* <p className="text-center text-sm text-neutral-500 dark:text-neutral-400">
         Don't have an account?{' '}
         <button
           type="button"
@@ -201,7 +201,7 @@ function SignInForm() {
         >
           Sign Up
         </button>
-      </p>
+      </p> */}
     </form>
   );
 }
